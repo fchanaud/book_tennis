@@ -153,14 +153,14 @@ def check_court_availability():
             url = f"{BASE_URL}#?date={date_str}"
             logger.info(f"Checking availability for {date_str} (day type: {day_type})")
             
-            # Navigate to the page
+            # Navigate to the page and wait for it to be fully loaded
             page.goto(url, wait_until="networkidle")
             
             # Wait for the booking table to load
             page.wait_for_selector(".resource-schedule", timeout=30000)
             
-            # Find all available slots
-            available_slots = page.query_selector_all(".slot:not(.unavailable)")
+            # Find all available slots with the class 'not-booked'
+            available_slots = page.query_selector_all(".slot.not-booked")
             
             if not available_slots:
                 logger.info(f"No available slots found for {date_str}")
