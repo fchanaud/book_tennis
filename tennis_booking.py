@@ -396,6 +396,119 @@ def check_court_availability():
                             
                             # Get the current URL before clicking any buttons
                             initial_booking_url = page.url
+                            logger.info(f"Initial booking URL: {initial_booking_url}")
+                            
+                            # Check for the "Continue booking" button and click it if present
+                            continue_button = page.query_selector("#submit-booking, button.primary[type='submit']")
+                            if continue_button:
+                                logger.info("Found 'Continue booking' button - preparing to click it")
+                                
+                                # Set up a navigation listener to capture the redirect URL
+                                redirect_url = [None]  # Use a list to store the URL so it can be modified in the closure
+                                
+                                def handle_response(response):
+                                    if response.status == 302 or response.status == 301:
+                                        location = response.headers.get("location")
+                                        if location:
+                                            # Make the location URL absolute if it's relative
+                                            if location.startswith('/'):
+                                                base_url = response.url.split('/', 3)[:3]
+                                                base_url = '/'.join(base_url)
+                                                location = f"{base_url}{location}"
+                                            
+                                            # Check if this appears to be a sign-in URL with booking parameters
+                                            if ('signin' in location.lower() or 'login' in location.lower()) and 'returnurl' in location.lower():
+                                                redirect_url[0] = location
+                                                logger.info(f"Captured sign-in redirect URL: {location}")
+                                            else:
+                                                # Store any redirect URL as a fallback
+                                                if not redirect_url[0]:
+                                                    redirect_url[0] = location
+                                                    logger.info(f"Captured redirect URL: {location}")
+                                
+                                # Listen for responses
+                                page.on("response", handle_response)
+                                
+                                # Click the continue button and wait for navigation
+                                try:
+                                    with page.expect_navigation(timeout=10000) as navigation_info:
+                                        continue_button.click()
+                                    
+                                    # Get the final URL after navigation
+                                    final_url = page.url
+                                    logger.info(f"Final URL after clicking 'Continue booking': {final_url}")
+                                    
+                                    # Save screenshot of the landing page
+                                    page.screenshot(path=f"post_continue_page_{date_str}_{start_time.replace(':', '')}.png")
+                                    
+                                    # Use the redirect URL if available, otherwise use the final URL
+                                    booking_url = redirect_url[0] if redirect_url[0] else final_url
+                                    
+                                    # Check if this is a login page, which is what we want
+                                    is_login_page = "signin" in booking_url.lower() or "login" in booking_url.lower()
+                                    if is_login_page:
+                                        logger.info("Successfully captured the login URL with booking parameters")
+                                    else:
+                                        logger.warning("Navigation did not lead to a login page; URL may not work for direct booking")
+                                    
+                                    # Create a more reliable direct URL to the venue's booking page
+                                    venue_name = None
+                                    
+                                    # Try to determine the venue
+                                    if "ClissoldParkHackney" in booking_url:
+                                        venue_name = "ClissoldParkHackney"
+                                    elif "LondonFieldsPark" in booking_url:
+                                        venue_name = "LondonFieldsPark"
+                                    else:
+                                        # Try to extract venue from URL
+                                        venue_match = re.search(r"//[^/]+/([^/]+)/", booking_url)
+                                        venue_name = venue_match.group(1) if venue_match else "ClissoldParkHackney"
+                                    
+                                    # Try to extract the date from URL or use our target date
+                                    date_match = re.search(r"Date=([^&]+)", booking_url)
+                                    booking_date = date_match.group(1) if date_match else date_str
+                                    
+                                    # Extract ResourceID for reference
+                                    resource_id_match = re.search(r"ResourceID=([^&]+)", booking_url)
+                                    resource_id_value = resource_id_match.group(1) if resource_id_match else "Unknown"
+                                    
+                                    # Create a simpler, more reliable booking page URL
+                                    direct_booking_url = f"https://clubspark.lta.org.uk/{venue_name}/Booking/BookByDate#?date={booking_date}"
+                                    logger.info(f"Created direct booking page URL: {direct_booking_url}")
+                                    
+                                    # Send notification with both URLs
+                                    notification_info = {
+                                        "date": date_str,
+                                        "court": court_name,
+                                        "start_time": start_time,
+                                        "end_time": end_time,
+                                        "booking_url": direct_booking_url  # Use the simpler, more reliable URL
+                                    }
+                                    
+                                    # Add detailed booking instructions to help the user navigate
+                                    notification_info["additional_message"] = (
+                                        f"To book this court:\n\n"
+                                        f"1. Log in to ClubSpark first at https://clubspark.lta.org.uk\n"
+                                        f"2. Click the booking link in this notification\n"
+                                        f"3. Find and select {court_name} at {start_time} on {date_str}\n\n"
+                                        f"Court ID: {resource_id_value}\n"
+                                        f"Venue: {venue_name}\n"
+                                        f"Time: {start_time} - {end_time}"
+                                    )
+                                    
+                                    notification_sent = send_pushover_notification(notification_info)
+                                    if notification_sent:
+                                        logger.info("Notification sent successfully. Stopping search as we found a matching slot.")
+                                        # Stop processing more slots after finding a match and sending notification
+                                        return
+                                    
+                                except Exception as nav_error:
+                                    logger.error(f"Error during navigation after clicking continue: {str(nav_error)}")
+                                    # Fall back to the initial URL
+                                    booking_url = initial_booking_url
+                            else:
+                                logger.warning("No 'Continue booking' button found")
+                                redirect_booking_url = initial_booking_url
                             
                             # Extract relevant details from the URL or page content
                             # Look for resource ID and other booking parameters
@@ -425,41 +538,73 @@ def check_court_availability():
                             if date_param:
                                 logger.info(f"Date parameter: {date_param}")
                             
-                            # Use the initial URL which should work with user login
-                            booking_url = initial_booking_url
-                            logger.info(f"Initial booking URL: {booking_url}")
-                            
                             # Create a direct booking URL if possible with the extracted parameters
                             direct_url = None
-                            if "ClissoldParkHackney" in booking_url:
+                            if "ClissoldParkHackney" in redirect_booking_url:
                                 venue_part = "ClissoldParkHackney"
-                            elif "LondonFieldsPark" in booking_url:
+                            elif "LondonFieldsPark" in redirect_booking_url:
                                 venue_part = "LondonFieldsPark"
                             else:
                                 # Extract venue name from URL
-                                venue_match = re.search(r"//[^/]+/([^/]+)/Booking", booking_url)
+                                venue_match = re.search(r"//[^/]+/([^/]+)/Booking", redirect_booking_url)
                                 venue_part = venue_match.group(1) if venue_match else None
                             
-                            if venue_part and date_param:
-                                # Create a more reliable direct URL that should work when logged in
-                                direct_url = f"https://clubspark.lta.org.uk/{venue_part}/Booking/BookByDate#?date={date_param}"
-                                logger.info(f"Created direct booking URL: {direct_url}")
+                            # Try to extract ResourceID, Date, and other parameters from the booking URL
+                            resource_id_param = None
+                            date_param = None
                             
-                            # Send notification with both URLs
+                            # First try to get from the redirect URL which should contain these parameters
+                            param_extract = re.search(r"ResourceID=([^&]+).*?Date=([^&]+)", redirect_booking_url)
+                            if param_extract:
+                                resource_id_param = param_extract.group(1)
+                                date_param = param_extract.group(2)
+                                logger.info(f"Extracted ResourceID={resource_id_param} and Date={date_param} from booking URL")
+                            
+                            # If we didn't get the params from URL, try data attributes
+                            if not resource_id_param:
+                                resource_id_param = resource_id or slot.get_attribute("data-resourceid")
+                                
+                                # Try extracting from data-test-id if not found yet
+                                if not date_param:
+                                    test_id = slot.get_attribute("data-test-id")
+                                    if test_id:
+                                        parts = test_id.split("|")
+                                        if len(parts) >= 2:
+                                            date_param = parts[1]
+                            
+                            # Create a simplified direct URL that works more reliably
+                            simplified_url = None
+                            if venue_part:
+                                if resource_id_param and date_param:
+                                    # Create a direct link to the court on the specific date
+                                    simplified_url = f"https://clubspark.lta.org.uk/{venue_part}/Booking/BookByDate#?date={date_param}"
+                                    logger.info(f"Created simplified booking URL: {simplified_url}")
+                                else:
+                                    # Just link to the venue booking page for the date
+                                    simplified_url = f"https://clubspark.lta.org.uk/{venue_part}/Booking/BookByDate#?date={date_str}"
+                                    logger.info(f"Created fallback venue booking URL: {simplified_url}")
+                            
+                            # Send notification with the most reliable URL option
+                            booking_url_to_use = simplified_url if simplified_url else redirect_booking_url
                             slot_info = {
                                 "date": date_str,
                                 "court": court_name,
                                 "start_time": start_time,
                                 "end_time": end_time,
-                                "booking_url": direct_url or booking_url
+                                "booking_url": booking_url_to_use
                             }
                             
-                            # Add booking instructions to the message
+                            # Log the final booking URL we're using for the notification
+                            logger.info(f"Final booking URL for notification: {booking_url_to_use}")
+                            
+                            # Add booking instructions with more detail
                             slot_info["additional_message"] = (
                                 f"To book this court:\n"
-                                f"1. Log in to ClubSpark first\n"
+                                f"1. Log in to ClubSpark first at https://clubspark.lta.org.uk\n"
                                 f"2. Then click the booking link\n"
-                                f"3. Find the {court_name} court at {start_time}"
+                                f"3. Find {court_name} court at {start_time} on {date_str}\n\n"
+                                f"If you get an error, try going directly to:\n"
+                                f"https://clubspark.lta.org.uk/{venue_part or 'ClissoldParkHackney'}/Booking/BookByDate#?date={date_str}"
                             )
                             
                             notification_sent = send_pushover_notification(slot_info)
