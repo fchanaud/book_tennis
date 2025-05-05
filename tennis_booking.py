@@ -156,11 +156,19 @@ def check_court_availability():
             # Navigate to the page and wait for it to be fully loaded
             page.goto(url, wait_until="networkidle")
             
-            # Wait for the booking table to load
-            page.wait_for_selector(".resource-schedule", timeout=30000)
+            # Wait for the booking calendar to load
+            try:
+                # Wait for the booking-sheet class which is the correct one for this calendar view
+                page.wait_for_selector(".booking-sheet", timeout=30000)
+                logger.info("Booking calendar (.booking-sheet) loaded successfully")
+            except Exception as e:
+                logger.error(f"Error waiting for booking calendar: {str(e)}")
+                logger.info("Attempting to continue anyway...")
+                # Add a small delay to give the page more time to load
+                page.wait_for_timeout(5000)
             
             # Find all available slots with the class 'not-booked'
-            available_slots = page.query_selector_all(".slot.not-booked")
+            available_slots = page.query_selector_all(".not-booked")
             
             if not available_slots:
                 logger.info(f"No available slots found for {date_str}")
@@ -208,13 +216,20 @@ def check_court_availability():
                         
                         # Go back to the availability page to check other slots
                         page.goto(url, wait_until="networkidle")
-                        page.wait_for_selector(".resource-schedule", timeout=30000)
+
+                        # Wait for the booking calendar to reload
+                        try:
+                            page.wait_for_selector(".booking-sheet", timeout=30000)
+                            logger.info("Booking calendar reloaded successfully")
+                        except Exception as e:
+                            logger.warning(f"Booking calendar not reloaded after returning to availability page: {str(e)}")
+                            # Add a small delay to give the page more time to load
+                            page.wait_for_timeout(5000)
                 
                 except Exception as e:
                     logger.error(f"Error processing slot: {str(e)}")
                     # Continue with next slot
                     page.goto(url, wait_until="networkidle")
-                    page.wait_for_selector(".resource-schedule", timeout=30000)
         
         except Exception as e:
             logger.error(f"Error checking court availability: {str(e)}")
