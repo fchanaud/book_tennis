@@ -2,11 +2,8 @@ services:
   - type: web
     name: tennis-booking
     env: python
-    buildCommand: |
-      cp -v build.sh start.sh /opt/render/
-      chmod +x /opt/render/build.sh /opt/render/start.sh
-      /opt/render/build.sh
-    startCommand: /opt/render/start.sh
+    buildCommand: bash build.sh
+    startCommand: bash start.sh
     envVars:
       - key: PYTHONPATH
         value: .

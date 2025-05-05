@@ -179,8 +179,20 @@ def check_court_availability():
     
     with sync_playwright() as p:
         try:
-            # Launch browser
-            browser = p.chromium.launch(headless=True)
+            # Launch browser with additional arguments for cloud environment
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ]
+            )
             context = browser.new_context(viewport={"width": 1920, "height": 1080})
             page = context.new_page()
             

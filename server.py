@@ -4,6 +4,12 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from tennis_booking import check_court_availability
 import pytz
+import sys
+import subprocess
+
+# Set Playwright browsers path if not already set
+if 'PLAYWRIGHT_BROWSERS_PATH' not in os.environ:
+    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(os.path.expanduser('~'), 'pw-browsers')
 
 # Set up logging
 logging.basicConfig(
