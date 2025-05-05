@@ -1,7 +1,7 @@
 services:
   - type: web
     name: tennis-booking
-    env: python
+    runtime: python3
     buildCommand: bash build.sh
     startCommand: bash start.sh
     envVars:
