@@ -1,18 +1,18 @@
 services:
   - type: web
-    name: tennis-booking-automation
-    env: python
-    buildCommand: |
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
-      pip install playwright
-      python -m playwright install chromium --with-deps
-    startCommand: python -m gunicorn app:app
+    name: tennis-booking
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    startCommand: gunicorn server:app --timeout 120
     envVars:
+      - key: PYTHONPATH
+        value: .
+      - key: PORT
+        value: 10000
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: PUSHOVER_USER_KEY
         sync: false
       - key: PUSHOVER_API_TOKEN
         sync: false
-      - key: PYTHON_VERSION
-        value: 3.11.0
-    healthCheckPath: /health 
+    plan: free 
