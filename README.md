@@ -1,6 +1,6 @@
 # Tennis Court Booking Automation
 
-This project automates the process of checking for available tennis courts at London Fields Park and sends notifications when slots matching your preferences are available.
+This project automates the process of checking for available tennis courts at London Fields Park and sends instant notifications when slots matching your preferences are available.
 
 ## Features
 
@@ -11,14 +11,14 @@ This project automates the process of checking for available tennis courts at Lo
   - Wednesdays between 12:00-14:00 or at 8:00 AM
   - Weekdays after 18:00
   - Any time on weekends (maximum 2 hours)
-- Sends email notifications with booking URLs for available slots
+- Sends instant push notifications to your iPhone with booking URLs using Pushover
 - Deployable to Render.com
 
 ## Requirements
 
 - Python 3.7+
 - Chrome browser (for Selenium WebDriver)
-- SMTP email account for sending notifications
+- Pushover account and application (for notifications)
 
 ## Installation
 
@@ -33,21 +33,21 @@ This project automates the process of checking for available tennis courts at Lo
    pip install -r requirements.txt
    ```
 
-3. Create a `.env` file based on the `env.example` template:
+3. Set up Pushover:
+   - Create an account at https://pushover.net/
+   - Create a new application at https://pushover.net/apps/build
+   - Note your User Key and API Token
+
+4. Create a `.env` file based on the `env.example` template:
    ```
    cp env.example .env
    ```
 
-4. Edit the `.env` file with your email configuration:
+5. Edit the `.env` file with your Pushover configuration:
    ```
-   EMAIL_SENDER=your-email@gmail.com
-   EMAIL_PASSWORD=your-app-password
-   EMAIL_RECIPIENT=recipient-email@example.com
-   SMTP_SERVER=smtp.gmail.com
-   SMTP_PORT=587
+   PUSHOVER_USER_KEY=your_user_key_here
+   PUSHOVER_API_TOKEN=your_api_token_here
    ```
-
-   > Note: If you're using Gmail, you'll need to create an app password. Go to Google Account > Security > App passwords.
 
 ## Usage
 
@@ -78,7 +78,9 @@ The application will be accessible at `http://localhost:5000`.
 3. Set the following configuration:
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `gunicorn app:app`
-4. Add environment variables from your `.env` file.
+4. Add environment variables for your Pushover credentials:
+   - `PUSHOVER_USER_KEY`
+   - `PUSHOVER_API_TOKEN`
 5. Deploy the service.
 
 ## How It Works
@@ -86,8 +88,8 @@ The application will be accessible at `http://localhost:5000`.
 1. At the scheduled time, the script checks the London Fields Park booking website.
 2. It looks for available slots matching your preferences.
 3. When a matching slot is found, the script clicks on it to get the booking URL.
-4. An email notification is sent with the booking URL.
-5. You can then manually complete the booking process by clicking the URL in the email.
+4. A push notification is sent to your iPhone with the booking URL.
+5. You can then tap the notification to complete the booking process immediately.
 
 ## Customization
 
@@ -103,4 +105,4 @@ PREFERENCES = {
 
 ## License
 
-MIT # book_tennis
+MIT

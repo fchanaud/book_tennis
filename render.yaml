@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: tennis-booking-automation
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PUSHOVER_USER_KEY
+        sync: false
+      - key: PUSHOVER_API_TOKEN
+        sync: false
+      - key: CHROME_BIN
+        value: /usr/bin/google-chrome
+    healthCheckPath: /health 
